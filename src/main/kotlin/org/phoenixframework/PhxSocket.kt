@@ -238,9 +238,11 @@ open class PhxSocket(
      * the server that it is leaving so you should call channel.leave() first.
      */
     public fun remove(channel: PhxChannel) {
-        this.channels = channels
-                .filter { it.joinRef != channel.joinRef }
-                .toMutableList()
+        synchronized(this.channels) {
+            this.channels = channels
+                    .filter { it.joinRef != channel.joinRef }
+                    .toMutableList()
+        }
     }
 
     /**
@@ -366,25 +368,29 @@ open class PhxSocket(
 
         val message = gson.fromJson(rawMessage, PhxMessage::class.java)
 
-        // Dispatch the message to all channels that belong to the topic
-        this.channels
-                .filter { it.isMember(message) }
-                .forEach { it.trigger(message) }
+        synchronized(this.channels) {
+            // Dispatch the message to all channels that belong to the topic
+            this.channels
+                    .filter { it.isMember(message) }
+                    .forEach { it.trigger(message) }
 
-        // Inform all onMessage callbacks of the message
-        this.onMessageCallbacks.forEach { it(message) }
+            // Inform all onMessage callbacks of the message
+            this.onMessageCallbacks.forEach { it(message) }
 
-        // Check if this message was a pending heartbeat
-        if (message.ref == pendingHeartbeatRef) {
-            this.logItems("Received Pending Heartbeat")
-            this.pendingHeartbeatRef = null
+            // Check if this message was a pending heartbeat
+            if (message.ref == pendingHeartbeatRef) {
+                this.logItems("Received Pending Heartbeat")
+                this.pendingHeartbeatRef = null
+            }
         }
     }
 
     /** Triggers an error event to all connected Channels */
     private fun triggerChannelError() {
-        val errorMessage = PhxMessage(event = PhxChannel.PhxEvent.ERROR.value)
-        this.channels.forEach { it.trigger(errorMessage) }
+        synchronized(this.channels) {
+            val errorMessage = PhxMessage(event = PhxChannel.PhxEvent.ERROR.value)
+            this.channels.forEach { it.trigger(errorMessage) }
+        }
     }
 
     /** Send all messages that were buffered before the socket opened */

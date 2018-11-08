@@ -239,9 +239,7 @@ open class PhxSocket(
      */
     public fun remove(channel: PhxChannel) {
         synchronized(this.channels) {
-            this.channels = channels
-                    .filter { it.joinRef != channel.joinRef }
-                    .toMutableList()
+            this.channels.removeAll { it.joinRef == channel.joinRef }
         }
     }
 
